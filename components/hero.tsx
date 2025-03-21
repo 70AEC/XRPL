@@ -4,36 +4,36 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, ShieldCheck, TruckIcon, Wallet } from "lucide-react"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 
 export default function Hero() {
+  const [lines, setLines] = useState<{ x1: number, x2: number }[]>([])
+
+  useEffect(() => {
+    const newLines = [...Array(20)].map(() => ({
+      x1: Math.random() * 100,
+      x2: Math.random() * 100,
+    }))
+    setLines(newLines)
+  }, [])
+
   return (
     <section className="relative py-20 overflow-hidden bg-gradient-to-b from-blue-900 to-blue-950">
-      <div className="absolute inset-0 opacity-10">
-        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {[...Array(20)].map((_, i) => (
-            <line
-              key={i}
-              x1={Math.random() * 100}
-              y1="0"
-              x2={Math.random() * 100}
-              y2="100"
-              stroke="white"
-              strokeWidth="0.1"
-            />
-          ))}
-          {[...Array(20)].map((_, i) => (
-            <line
-              key={i + 20}
-              x1="0"
-              y1={Math.random() * 100}
-              x2="100"
-              y2={Math.random() * 100}
-              stroke="white"
-              strokeWidth="0.1"
-            />
-          ))}
-        </svg>
-      </div>
+       <div className="absolute inset-0 opacity-10">
+      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {lines.map((line, i) => (
+          <line
+            key={i}
+            x1={line.x1}
+            y1={0}
+            x2={line.x2}
+            y2={100}
+            stroke="white"
+            strokeWidth="0.1"
+          />
+        ))}
+      </svg>
+    </div>
       <div className="container relative z-10 px-4 mx-auto">
         <div className="flex flex-col items-center max-w-4xl mx-auto text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
