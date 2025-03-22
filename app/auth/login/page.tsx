@@ -33,7 +33,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/xumm ', {
+      const res = await fetch('/api/xumm', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
