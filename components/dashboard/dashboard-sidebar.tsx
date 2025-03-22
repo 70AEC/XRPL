@@ -30,7 +30,7 @@ export default function DashboardSidebar({ open, setOpen }: DashboardSidebarProp
     {
       label: "Escrow Contracts",
       icon: FileText,
-      href: "/escrow",
+      href: "/escrow/TXN-006",
       active: pathname === "/escrow" || pathname.startsWith("/escrow/"),
     },
     {

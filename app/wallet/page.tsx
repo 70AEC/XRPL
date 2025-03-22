@@ -69,49 +69,6 @@ export default function WalletPage() {
                             </Button>
                           </div>
                         </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label>Secret Key (Seed)</Label>
-                            <Button variant="ghost" size="sm" onClick={() => setShowSeed(!showSeed)}>
-                              {showSeed ? (
-                                <>
-                                  <EyeOff className="h-4 w-4 mr-1" /> Hide
-                                </>
-                              ) : (
-                                <>
-                                  <Eye className="h-4 w-4 mr-1" /> Show
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                          <div className="flex items-center">
-                            <Input
-                              type={showSeed ? "text" : "password"}
-                              value={
-                                showSeed && wallet.seed !== "••••••••••••••••••••••••••••••••"
-                                  ? wallet.seed
-                                  : "••••••••••••••••••••••••••••••••"
-                              }
-                              readOnly
-                              className="font-mono text-sm"
-                            />
-                            {showSeed && wallet.seed !== "••••••••••••••••••••••••••••••••" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="ml-2"
-                                onClick={() => handleCopy(wallet.seed)}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          <p className="text-sm text-red-500">
-                            Never share your secret key with anyone. Keep it secure.
-                          </p>
-                        </div>
-
                         <div className="pt-4 flex justify-between">
                           <Button variant="outline" onClick={handleDisconnect}>
                             Disconnect Wallet
