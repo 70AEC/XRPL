@@ -8,8 +8,16 @@ const xumm = new XummSdk(
 
 export async function POST(req: NextRequest) {
   const payload = await xumm.payload.create({
-    TransactionType: "SignIn"
+    TransactionType: 'SignIn',
+    options: {
+      return_url: {
+        web: `${process.env.NEXT_PUBLIC_APP_URL}/xumm-redirect`
+      }
+    }
   })
 
-  return NextResponse.json({ next: payload?.next.always })
+  return NextResponse.json({
+    uuid: payload?.uuid,
+    next: payload?.next.always
+  })
 }
