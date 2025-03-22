@@ -1,12 +1,31 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ArrowDown, ArrowRight, ArrowUp, Download, Search } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  Download,
+  Search,
+} from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import Link from "next/link"
 
 type Transaction = {
@@ -27,16 +46,32 @@ export default function RecentTransactions() {
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const meRes = await fetch("/api/me")
-        const meData = await meRes.json()
-
-        if (!meData.loggedIn) return
-
         const res = await fetch("/api/transactions")
         const data = await res.json()
 
-        if (data.transactions) {
-          setTransactions(data.transactions)
+        if (data.escrows) {
+          const mapped = data.escrows.map((item: any, index: number) => {
+            const milestoneMemo = item.memos.find((m: any) => m.type === "milestone")
+            const description = milestoneMemo?.data?.title || "Unknown milestone"
+            const amount = parseFloat(item.amount) / 1_000_000
+
+            return {
+              id: `TXN-${index + 1}`.padStart(7, "0"),
+              date: new Date(item.finishAfter * 1000).toISOString().split("T")[0],
+              type: "Escrow Create",
+              description,
+              amount,
+              currency: "XRP",
+              status: milestoneMemo?.data?.completed ? "Completed" : "Pending",
+              direction: "outgoing",
+            }
+          })
+
+          const sorted = mapped.sort(
+            (a: { date: string | number | Date }, b: { date: string | number | Date }) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
+
+          setTransactions(sorted)
         }
       } catch (err) {
         console.error("Failed to fetch transactions", err)
@@ -54,12 +89,17 @@ export default function RecentTransactions() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>View your recent escrow transactions and their status</CardDescription>
+            <CardDescription>
+              View your recent escrow transactions and their status
+            </CardDescription>
           </div>
           <div className="mt-4 sm:mt-0 flex items-center space-x-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input placeholder="Search transactions..." className="pl-8 h-9 w-[200px] sm:w-[300px]" />
+              <Input
+                placeholder="Search transactions..."
+                className="pl-8 h-9 w-[200px] sm:w-[300px]"
+              />
             </div>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-1" /> Export
@@ -129,15 +169,15 @@ export default function RecentTransactions() {
                           tx.status === "Completed"
                             ? "default"
                             : tx.status === "Pending"
-                            ? "outline"
-                            : "secondary"
+                              ? "outline"
+                              : "secondary"
                         }
                         className={
                           tx.status === "Completed"
                             ? "bg-green-500"
                             : tx.status === "Pending"
-                            ? "border-yellow-500 text-yellow-500"
-                            : "bg-red-500"
+                              ? "border-yellow-500 text-yellow-500"
+                              : "bg-red-500"
                         }
                       >
                         {tx.status}

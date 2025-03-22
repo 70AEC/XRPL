@@ -63,7 +63,7 @@ export async function GET() {
         memos,
       }
     })
-
+    console.log("Decoded Escrow Transactions:", JSON.stringify(decoded, null, 2)) 
     await client.disconnect()
     return NextResponse.json({ escrows: decoded })
   } catch (err: any) {
