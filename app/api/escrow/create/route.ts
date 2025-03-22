@@ -1,8 +1,15 @@
+// /app/api/escrow/create/route.ts
 import { NextRequest, NextResponse } from "next/server"
-import { Client, Wallet, convertStringToHex, EscrowCreate } from "xrpl"
+import { XummSdk } from "xumm-sdk"
+import { Wallet } from "xrpl"
 
-const XRPL_ENDPOINT = "wss://s.altnet.rippletest.net:51233" // ✅ WebSocket 기반 (Testnet)
+const xumm = new XummSdk(
+  process.env.NEXT_PUBLIC_XUMM_API_KEY!,
+  process.env.XUMM_API_SECRET!
+)
+
 const ADMIN_SECRET = process.env.XRPL_ADMIN_SEED as string
+const adminWallet = Wallet.fromSeed(ADMIN_SECRET)
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,10 +30,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const client = new Client(XRPL_ENDPOINT)
-    await client.connect()
-
-    const adminWallet = Wallet.fromSeed(ADMIN_SECRET)
     const totalXRP = parseFloat(escrowAmount)
     const timestamp = Date.now()
 
@@ -41,55 +44,51 @@ export async function POST(req: NextRequest) {
       createdAt: timestamp,
     }
 
-    const results: any[] = []
+    const payloads = []
 
     for (const milestone of milestones) {
-      const { title, percentage } = milestone
-      const milestoneDrops = Math.floor(totalXRP * 1000000 * (percentage / 100)).toString()
+      const milestoneAmount = Math.floor(totalXRP * 1000000 * (milestone.percentage / 100)).toString()
 
-      const tx: EscrowCreate = {
-        TransactionType: "EscrowCreate",
-        Account: adminWallet.classicAddress,
-        Destination: partnerAddress,
-        Amount: milestoneDrops,
-        CancelAfter: Math.floor(Date.now() / 1000) + 86400 * 30,
-        FinishAfter: Math.floor(Date.now() / 1000) + 60,
-        Memos: [
-          {
-            Memo: {
-              MemoType: convertStringToHex("parent_contract"),
-              MemoData: convertStringToHex(JSON.stringify(parentMemo)),
+      const payload = await xumm.payload.create({
+        txjson: {
+          TransactionType: "EscrowCreate",
+          Account: userA,
+          Destination: partnerAddress,
+          Amount: milestoneAmount,
+          CancelAfter: Math.floor(Date.now() / 1000) + 86400 * 30,
+          FinishAfter: Math.floor(Date.now() / 1000) + 60,
+          Memos: [
+            {
+              Memo: {
+                MemoType: Buffer.from("parent_contract").toString("hex"),
+                MemoData: Buffer.from(JSON.stringify(parentMemo)).toString("hex"),
+              },
             },
-          },
-          {
-            Memo: {
-              MemoType: convertStringToHex("milestone"),
-              MemoData: convertStringToHex(JSON.stringify({
-                title,
-                percentage,
-                amount: milestoneDrops,
-              })),
+            {
+              Memo: {
+                MemoType: Buffer.from("milestone").toString("hex"),
+                MemoData: Buffer.from(JSON.stringify(milestone)).toString("hex"),
+              },
             },
+          ],
+        },
+        options: {
+          return_url: {
+            web: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
           },
-        ],
+        },
+      })
+
+      if (payload) {
+        payloads.push({ uuid: payload.uuid, next: payload.next.always })
+      } else {
+        console.error("Payload creation failed and returned null.")
       }
-
-      const prepared = await client.autofill(tx)
-      const signed = adminWallet.sign(prepared)
-      const submitted = await client.submitAndWait(signed.tx_blob)
-
-      results.push(submitted.result)
     }
 
-    await client.disconnect()
-
-    return NextResponse.json({
-      success: true,
-      message: "Escrow contracts submitted",
-      results,
-    })
+    return NextResponse.json({ success: true, payloads })
   } catch (error: any) {
-    console.error("Error creating escrow:", error)
+    console.error("Error creating escrow via XUMM:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
