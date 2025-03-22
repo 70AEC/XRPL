@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,22 @@ import EscrowStats from "@/components/dashboard/escrow-stats"
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [address, setAddress] = useState("")
+
+  useEffect(() => {
+    const getMe = async () => {
+      const res = await fetch("/api/me")
+      const data = await res.json()
+      if (data.loggedIn) {
+        setAddress(data.address)
+      }
+    }
+
+    getMe()
+  }, [])
+
+  const shortAddress = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : ""
+
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -37,6 +53,13 @@ export default function DashboardPage() {
                 transition={{ duration: 0.5, delay: 0.1 }}
                 className="mt-4 md:mt-0 flex space-x-3"
               >
+
+                {shortAddress && (
+                  <div className="px-3 py-1 bg-white border rounded text-sm text-gray-600">
+                    {shortAddress}
+                  </div>
+                )}
+
                 <Button className="bg-blue-600 hover:bg-blue-700" asChild>
                   <Link href="/escrow/create">
                     <Plus className="mr-2 h-4 w-4" /> Create Escrow

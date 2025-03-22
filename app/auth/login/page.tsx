@@ -29,37 +29,71 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
+  const pollLoginStatus = (uuid: string, popup: Window | null) => {
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/xumm-status?uuid=${uuid}`)
+      const data = await res.json()
+
+      if (data.success) {
+        clearInterval(interval)
+
+        // ✅ 팝업 닫기
+        if (popup && !popup.closed) {
+          popup.close()
+        }
+
+        router.push('/dashboard')
+      }
+    }, 2000)
+  }
+
   const handleXummLogin = async () => {
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
-      const res = await fetch('/api/xumm', {
-        method: 'POST',
+      const res = await fetch("/api/xumm", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-      });
+      })
 
-      const data = await res.json();
-      if (data.next) {
-        window.open(data.next, '_blank');
+      const data = await res.json()
+      if (data?.next && data?.uuid) {
+        const popup = window.open(
+          data.next,
+          "XUMMLoginPopup",
+          "width=460,height=700"
+        )
+
+        pollLoginStatus(data.uuid, popup)
+
+        const messageListener = (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return
+          if (event.data === "xumm:signed") {
+            popup?.close()
+            window.removeEventListener("message", messageListener)
+            router.push("/dashboard")
+          }
+        }
+
+        window.addEventListener("message", messageListener)
       }
     } catch (error) {
-      console.error('XUMM login failed', error);
+      console.error("XUMM login failed", error)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleCredentialLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+    e.preventDefault()
+    setIsLoading(true)
     setTimeout(() => {
-      setIsLoading(false);
-      router.push('/dashboard');
-    }, 2000);
-  };
-
+      setIsLoading(false)
+      router.push("/dashboard")
+    }, 2000)
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-blue-950 p-4">
