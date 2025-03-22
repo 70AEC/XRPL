@@ -133,3 +133,28 @@ export class XRPLClient {
   }
 }
 
+// XRPLClient 인스턴스 전역 관리
+let client: XRPLClient | null = null
+
+export async function connectToXRPL(server = "wss://s.altnet.rippletest.net:51233") {
+  if (!client) {
+    client = new XRPLClient(server)
+    await client.connect()
+    console.log("✅ Connected to XRPL")
+  }
+  return client
+}
+
+export async function disconnectFromXRPL() {
+  if (client) {
+    await client.disconnect()
+    console.log("🔌 Disconnected from XRPL")
+    client = null
+  }
+}
+
+export async function connectWallet(seed?: string) {
+  const xrpl = await connectToXRPL()
+  return seed ? xrpl.createWalletFromSeed(seed) : xrpl.generateWallet()
+}
+
