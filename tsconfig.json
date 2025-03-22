@@ -22,6 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/api/api/check-kyb.ㅓㄴ"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/api/api/check-kyb.ㅓㄴ", "app/api/escrow/create/route.js", "app/api/transactions/latest/route.js", "app/api/escrow/multisign/route.js"],
   "exclude": ["node_modules"]
 }
