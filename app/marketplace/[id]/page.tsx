@@ -510,9 +510,14 @@ export default function FactoryDetailPage() {
               >
                 <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline">
+                    <Button
+                      variant="outline"
+                      className="text-gray-800 bg-white hover:bg-gray-100 hover:text-gray-800"
+                    >
                       <MessageSquare className="mr-2 h-4 w-4" /> Contact
                     </Button>
+
+
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
@@ -554,64 +559,11 @@ export default function FactoryDetailPage() {
                     </form>
                   </DialogContent>
                 </Dialog>
-
-                <Dialog open={escrowDialogOpen} onOpenChange={setEscrowDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      <FileText className="mr-2 h-4 w-4" /> Create Escrow
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Create Escrow with {factory.name}</DialogTitle>
-                      <DialogDescription>
-                        Set up a secure escrow contract for services with this provider.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleEscrowSubmit}>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="service" className="text-right">
-                            Service
-                          </Label>
-                          <Select required>
-                            <SelectTrigger className="col-span-3">
-                              <SelectValue placeholder="Select a service" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {factory.services.map((service, index) => (
-                                <SelectItem key={index} value={service.name}>
-                                  {service.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="amount" className="text-right">
-                            Amount (XRP)
-                          </Label>
-                          <Input id="amount" type="number" className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="date" className="text-right">
-                            Due Date
-                          </Label>
-                          <Input id="date" type="date" className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="notes" className="text-right">
-                            Notes
-                          </Label>
-                          <Textarea id="notes" className="col-span-3" rows={3} />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button type="submit">Proceed to Escrow Creation</Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                <Link href="/escrow/create?partner=rNJyqqd1KQpoPFrtaP3mtM3qkvVQXFUMPx">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                    <FileText className="mr-2 h-4 w-4" /> Create Escrow
+                  </Button>
+                </Link>
               </motion.div>
             </div>
 
@@ -743,9 +695,8 @@ export default function FactoryDetailPage() {
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`h-4 w-4 ${
-                                    i < testimonial.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
-                                  }`}
+                                  className={`h-4 w-4 ${i < testimonial.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                                    }`}
                                 />
                               ))}
                             </div>
@@ -843,12 +794,12 @@ export default function FactoryDetailPage() {
                       </div>
                     </div>
                     <div className="mt-6">
-                      <Button
-                        className="w-full bg-blue-600 hover:bg-blue-700"
-                        onClick={() => setEscrowDialogOpen(true)}
-                      >
-                        <FileText className="mr-2 h-4 w-4" /> Create Escrow Contract
-                      </Button>
+                      <Link href="/escrow/create?partner=rNJyqqd1KQpoPFrtaP3mtM3qkvVQXFUMPx">
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                          <FileText className="mr-2 h-4 w-4" /> Create Escrow Contract
+                        </Button>
+                      </Link>
+
                     </div>
                   </CardContent>
                 </Card>
