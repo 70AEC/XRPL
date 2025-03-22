@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { Client, Wallet, EscrowFinish } from "xrpl"
 
 const XRPL_ENDPOINT = "wss://s.altnet.rippletest.net:51233" // ✅ WebSocket 기반 (Testnet)
-const ADMIN_SECRET = process.env.XUMM_API_SECRET as string
+const ADMIN_SECRET = process.env.XRPL_ADMIN_SEED as string
 
 export async function POST(req: NextRequest) {
   try {
