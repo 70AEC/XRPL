@@ -77,17 +77,27 @@ export default function TransactionsPage() {
       return
     }
 
-    const payloadRes = await fetch("/api/escrow/create-payload", {
+    const txJson = {
+      TransactionType: "EscrowFinish",
+      Account: userAddress,
+      Owner: parentMemo.data.owner || parentMemo.data.userA,
+      OfferSequence: tx.sequence,
+    }
+
+    console.log("📦 txJson to be signed:", txJson)
+
+    const payloadRes = await fetch("/api/escrow/multisign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        offerSequence: tx.sequence,
-        userAddress,
-        ownerAddress: parentMemo.data.owner || parentMemo.data.userA, // fallback to userA
+        action: "createPayload",
+        txJson,
       }),
     })
 
-    const { uuid, error } = await payloadRes.json()
+    const { uuid, next, error } = await payloadRes.json()
+    console.log("🧾 Payload creation response:", { uuid, next, error })
+
     if (!uuid || error) {
       alert("❌ Failed to create signing payload.")
       return
@@ -96,19 +106,17 @@ export default function TransactionsPage() {
     window.open(`https://xumm.app/sign/${uuid}`, "_blank")
 
     setTimeout(async () => {
-      const finishRes = await fetch("/api/escrow/finish", {
+      const finishRes = await fetch("/api/escrow/multisign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          offerSequence: tx.sequence,
-          role,
-          userA: parentMemo.data.userA,
-          userB: parentMemo.data.userB,
+          action: "collectSignature",
+          uuid,
         }),
       })
 
       const result = await finishRes.json()
-      alert(result.success ? "✅ Escrow finished!" : result.error || "❌ Failed to finish escrow.")
+      alert(result.success ? "✅ Signature collected!" : result.error || "❌ Failed to collect signature.")
     }, 10000)
   }
 
