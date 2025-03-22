@@ -86,9 +86,9 @@ export default function DashboardSidebar({ open, setOpen }: DashboardSidebarProp
         <div className="flex items-center justify-between h-16 px-6 border-b">
           <Link href="/" className="flex items-center space-x-2">
             <Bot className="w-8 h-8 text-blue-600" />
-            <span className="font-medium text-xl">Blogistics</span>
+            <span className="font-bold text-xl text-black">Blogistics</span>
           </Link>
-          <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="lg:hidden">
+          <Button variant="ghost" size="icon" onClick={() => setOpen(false)} className="lg:hidden bg-blue-300">
             <X className="h-6 w-6" />
             <span className="sr-only">Close sidebar</span>
           </Button>

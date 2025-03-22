@@ -30,7 +30,7 @@ export default function DashboardHeader({ sidebarOpen, setSidebarOpen }: Dashboa
               <Menu className="h-6 w-6" />
               <span className="sr-only">Toggle sidebar</span>
             </Button>
-            <div className="hidden md:block">
+            <div className="hidden md:block border-gray-200">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                 <Input placeholder="Search..." className="w-[300px] pl-9" />
@@ -48,7 +48,7 @@ export default function DashboardHeader({ sidebarOpen, setSidebarOpen }: Dashboa
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full bg-blue-400">
                   <User className="h-5 w-5" />
                   <span className="sr-only">User menu</span>
                 </Button>

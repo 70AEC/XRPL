@@ -85,7 +85,7 @@ export default function EscrowDetailsPage() {
               </div>
 
               <div className="mt-4 md:mt-0 flex space-x-3">
-                <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50" asChild>
+                <Button variant="outline" className="border-blue-600 text-black hover:bg-blue-50 hover:text-blue-700" asChild>
                   <a
                     href={`https://testnet.xrpl.org/transactions/${escrow.txHash}`}
                     target="_blank"
