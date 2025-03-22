@@ -1,35 +1,121 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Copy, ExternalLink, Eye, EyeOff, RefreshCw, Send, Wallet } from "lucide-react"
+import { Copy, ExternalLink, RefreshCw, Send, Wallet } from "lucide-react"
 import { motion } from "framer-motion"
-import { useWallet } from "@/hooks/use-wallet"
 import DashboardHeader from "@/components/dashboard/dashboard-header"
 import DashboardSidebar from "@/components/dashboard/dashboard-sidebar"
 
 export default function WalletPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [showSeed, setShowSeed] = useState(false)
+  const [walletAddress, setWalletAddress] = useState("")
+  const [balance, setBalance] = useState("")
   const [copied, setCopied] = useState(false)
-  const { wallet, isConnected, connect, disconnect } = useWallet()
+  const [recipient, setRecipient] = useState("")
+  const [amount, setAmount] = useState("")
+  const [txHash, setTxHash] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [uuid, setUuid] = useState("")
+  const [popup, setPopup] = useState<Window | null>(null)
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text)
+  // 지갑 세션 불러오기
+  const fetchSession = async () => {
+    try {
+      const res = await fetch("/api/me")
+      const data = await res.json()
+      if (data.loggedIn) {
+        setWalletAddress(data.address)
+      }
+    } catch (err) {
+      console.error("Failed to fetch session:", err)
+    }
+  }
+
+  // 잔액 가져오기
+  const fetchBalance = async () => {
+    if (!walletAddress) return
+    try {
+      const res = await fetch(`/api/xrpl/balance?address=${walletAddress}`)
+      const data = await res.json()
+      if (data.success) {
+        setBalance((parseFloat(data.balance) / 1_000_000).toFixed(6))
+      }
+    } catch (err) {
+      console.error("Failed to fetch balance:", err)
+    }
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(walletAddress)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleConnect = () => {
-    connect()
+  const handleSend = async () => {
+    if (!recipient || !amount) return
+    setLoading(true)
+    try {
+      const res = await fetch("/api/xrpl/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: walletAddress,
+          to: recipient,
+          amount,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.uuid && data.next) {
+        setUuid(data.uuid)
+        const newPopup = window.open(data.next, "XUMMSendPopup", "width=460,height=700")
+        setPopup(newPopup)
+      } else {
+        alert("Failed to initiate transaction: " + data.error)
+      }
+    } catch (err) {
+      alert("Transaction initiation error")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDisconnect = () => {
-    disconnect()
-  }
+  // 송금 상태 확인
+  useEffect(() => {
+    if (!uuid) return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/xrpl/send-status?uuid=${uuid}`)
+        const data = await res.json()
+
+        if (data.success && data.signed) {
+          setTxHash(data.txid)
+          await fetchBalance()
+          if (popup) {
+            popup.close()
+          }
+          clearInterval(interval)
+        }
+      } catch (err) {
+        console.error("Failed to fetch transaction status:", err)
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [uuid, popup])
+
+  useEffect(() => {
+    fetchSession()
+  }, [])
+
+  useEffect(() => {
+    if (walletAddress) fetchBalance()
+  }, [walletAddress])
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -51,51 +137,35 @@ export default function WalletPage() {
                   <CardTitle>Wallet Details</CardTitle>
                   <CardDescription>View and manage your XRPL wallet</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {isConnected && wallet ? (
+                <CardContent className="space-y-4">
+                  {walletAddress ? (
                     <>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Wallet Address</Label>
-                          <div className="flex items-center">
-                            <Input value={wallet.address} readOnly className="font-mono text-sm" />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="ml-2"
-                              onClick={() => handleCopy(wallet.address)}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="pt-4 flex justify-between">
-                          <Button variant="outline" onClick={handleDisconnect}>
-                            Disconnect Wallet
-                          </Button>
-                          <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50" asChild>
-                            <a
-                              href={`https://testnet.xrpl.org/accounts/${wallet.address}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              View on Explorer <ExternalLink className="ml-1 h-4 w-4" />
-                            </a>
+                      <div className="space-y-2">
+                        <Label>Wallet Address</Label>
+                        <div className="flex items-center">
+                          <Input value={walletAddress} readOnly className="font-mono text-sm" />
+                          <Button variant="ghost" size="icon" className="ml-2" onClick={handleCopy}>
+                            <Copy className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
+                      <div className="pt-4 flex justify-between">
+                        <Button variant="outline" onClick={() => setWalletAddress("")}>
+                          Disconnect Wallet
+                        </Button>
+                        <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50" asChild>
+                          <a
+                            href={`https://testnet.xrpl.org/accounts/${walletAddress}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            View on Explorer <ExternalLink className="ml-1 h-4 w-4" />
+                          </a>
+                        </Button>
+                      </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-10 space-y-4">
-                      <Wallet className="h-16 w-16 text-gray-400" />
-                      <h3 className="text-lg font-medium text-gray-900">No Wallet Connected</h3>
-                      <p className="text-gray-500 text-center max-w-md">
-                        Connect your XRPL wallet to manage escrow contracts and transactions.
-                      </p>
-                      <Button className="mt-4 bg-blue-600 hover:bg-blue-700" onClick={handleConnect}>
-                        Connect Wallet
-                      </Button>
-                    </div>
+                    <div className="text-center text-gray-500 py-8">No wallet connected.</div>
                   )}
                 </CardContent>
               </Card>
@@ -106,13 +176,13 @@ export default function WalletPage() {
                   <CardDescription>Your current XRP balance</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {isConnected ? (
+                  {walletAddress ? (
                     <>
-                      <div className="text-center py-4">
-                        <div className="text-3xl font-bold">25,000 XRP</div>
-                        <div className="text-sm text-gray-500 mt-1">≈ $12,500 USD</div>
+                                            <div className="text-center py-4">
+                        <div className="text-3xl font-bold">{balance || "0.000000"} XRP</div>
+                        <div className="text-sm text-gray-500 mt-1">on Testnet</div>
                       </div>
-                      <Button className="w-full" variant="outline">
+                      <Button className="w-full" variant="outline" onClick={fetchBalance}>
                         <RefreshCw className="mr-2 h-4 w-4" /> Refresh Balance
                       </Button>
                     </>
@@ -123,7 +193,7 @@ export default function WalletPage() {
               </Card>
             </div>
 
-            {isConnected && (
+            {walletAddress && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -133,34 +203,54 @@ export default function WalletPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Send XRP</CardTitle>
-                    <CardDescription>Transfer XRP to another address</CardDescription>
+                    <CardDescription>Transfer XRP to another address using XUMM</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <form className="space-y-4">
+                    <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="recipient">Recipient Address</Label>
-                        <Input id="recipient" placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="amount">Amount (XRP)</Label>
-                          <Input id="amount" type="number" placeholder="0.00" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="tag">Destination Tag (Optional)</Label>
-                          <Input id="tag" type="number" placeholder="Enter tag number" />
-                        </div>
+                        <Input
+                          id="recipient"
+                          placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="memo">Memo (Optional)</Label>
-                        <Input id="memo" placeholder="Add a note to this transaction" />
+                        <Label htmlFor="amount">Amount (XRP)</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          placeholder="0.00"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                        />
                       </div>
-                    </form>
+                      {txHash && (
+                        <div className="text-sm text-green-600">
+                          ✅ Sent successfully! TX Hash:{" "}
+                          <a
+                            href={`https://testnet.xrpl.org/transactions/${txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                          >
+                            {txHash}
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                   <CardFooter className="flex justify-between">
-                    <Button variant="outline">Clear</Button>
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      <Send className="mr-2 h-4 w-4" /> Send XRP
+                    <Button variant="outline" onClick={() => {
+                      setRecipient("")
+                      setAmount("")
+                      setTxHash("")
+                    }}>
+                      Clear
+                    </Button>
+                    <Button onClick={handleSend} disabled={loading || !recipient || !amount}>
+                      <Send className="mr-2 h-4 w-4" /> {loading ? "Sending..." : "Send XRP"}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -172,4 +262,3 @@ export default function WalletPage() {
     </div>
   )
 }
-
