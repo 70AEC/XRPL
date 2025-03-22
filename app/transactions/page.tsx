@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button" // Adjust the path based on your project structure
 import {
   Accordion,
   AccordionContent,
@@ -23,6 +24,7 @@ type EscrowTx = {
   finishAfter: number
   cancelAfter: number
   memos: Memo[]
+  sequence: number // Added the missing 'sequence' property
 }
 
 export default function TransactionsPage() {
@@ -49,7 +51,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="flex h-screen bg-white">
-       <DashboardSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+      <DashboardSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
@@ -105,7 +107,43 @@ export default function TransactionsPage() {
                             </div>
                           </div>
                         )}
+                        <button
+                          onClick={async () => {
+                            const cookies = document.cookie
+                            const match = cookies.match(/xrp_address=([^;]+)/)
+                            const userAddress = match ? decodeURIComponent(match[1]) : null
+
+                            if (!userAddress || !parentMemo?.data?.userA || !parentMemo?.data?.userB) {
+                              alert("Missing user address or contract info.")
+                              return
+                            }
+
+                            const role = userAddress === parentMemo.data.userA ? "userA" : "userB"
+                            const offerSequence = tx.sequence
+
+                            const result = await fetch("/api/escrow/finish", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                offerSequence,
+                                role,
+                                userA: parentMemo.data.userA,
+                                userB: parentMemo.data.userB,
+                              }),
+                            })
+
+                            const data = await result.json()
+                            alert(data.success ? "Escrow Finish submitted!" : data.error || "Error submitting EscrowFinish.")
+                          }}
+                          className="bg-blue-600 text-white px-4 py-2 mt-4 rounded hover:bg-blue-700"
+                        >
+                          Submit Escrow Finish
+                        </button>
+
+
                       </AccordionContent>
+
+
                     </AccordionItem>
                   )
                 })}
