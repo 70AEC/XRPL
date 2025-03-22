@@ -4,8 +4,20 @@ import type React from "react"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Wallet, KeyRound } from "lucide-react"
@@ -17,24 +29,37 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleWalletConnect = async () => {
-    setIsLoading(true)
-    // Simulate wallet connection
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/dashboard")
-    }, 2000)
-  }
+  const handleXummLogin = async () => {
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('/api/xumm ', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await res.json();
+      if (data.next) {
+        window.open(data.next, '_blank');
+      }
+    } catch (error) {
+      console.error('XUMM login failed', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleCredentialLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    // Simulate credential login
+    e.preventDefault();
+    setIsLoading(true);
     setTimeout(() => {
-      setIsLoading(false)
-      router.push("/dashboard")
-    }, 2000)
-  }
+      setIsLoading(false);
+      router.push('/dashboard');
+    }, 2000);
+  };
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-blue-900 to-blue-950 p-4">
@@ -61,28 +86,12 @@ export default function LoginPage() {
                 <div className="space-y-4">
                   <Button
                     className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={handleWalletConnect}
+                    onClick={handleXummLogin}
                     disabled={isLoading}
                   >
                     <Wallet className="w-5 h-5 mr-2" />
-                    {isLoading ? "Connecting..." : "Connect TrustWallet"}
+                    {isLoading ? "Connecting..." : "Connect with XUMM"}
                   </Button>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-gray-300" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="px-2 bg-white text-gray-500">Or connect with</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button variant="outline" className="h-12">
-                      XUMM Wallet
-                    </Button>
-                    <Button variant="outline" className="h-12">
-                      Ledger
-                    </Button>
-                  </div>
                 </div>
               </TabsContent>
               <TabsContent value="credentials">
@@ -114,7 +123,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 border-t p-6">
             <div className="text-center text-sm">
-              Don't have an account?{" "}
+              Don't have an account? {" "}
               <Link href="/auth/register" className="text-blue-600 hover:underline">
                 Sign up
               </Link>
@@ -128,4 +137,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
