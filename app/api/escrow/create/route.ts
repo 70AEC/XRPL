@@ -1,4 +1,3 @@
-// /app/api/escrow/create/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { XummSdk } from "xumm-sdk"
 import { Wallet } from "xrpl"
@@ -13,8 +12,6 @@ const adminWallet = Wallet.fromSeed(ADMIN_SECRET)
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-
     const {
       contractTitle,
       partnerAddress,
@@ -24,7 +21,7 @@ export async function POST(req: NextRequest) {
       milestones,
       userA,
       userB,
-    } = body
+    } = await req.json()
 
     if (!contractTitle || !partnerAddress || !escrowAmount || !Array.isArray(milestones)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -82,13 +79,16 @@ export async function POST(req: NextRequest) {
       if (payload) {
         payloads.push({ uuid: payload.uuid, next: payload.next.always })
       } else {
-        console.error("Payload creation failed and returned null.")
+        console.error("❌ Failed to create XUMM payload for milestone:", milestone.title)
       }
+
+      // 👇 서명 연속 발생 방지를 위해 0.5초 간 딜레이
+      await new Promise((res) => setTimeout(res, 5000))
     }
 
     return NextResponse.json({ success: true, payloads })
   } catch (error: any) {
-    console.error("Error creating escrow via XUMM:", error)
+    console.error("🚨 Error creating escrow via XUMM:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

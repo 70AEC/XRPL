@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,59 +9,44 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
 
+type Transaction = {
+  id: string
+  date: string
+  type: string
+  description: string
+  amount: number
+  currency: string
+  status: "Completed" | "Pending" | "Cancelled"
+  direction: "incoming" | "outgoing" | "refund"
+}
+
 export default function RecentTransactions() {
-  const transactions = [
-    {
-      id: "TXN-001",
-      date: "2025-03-20",
-      type: "Escrow Create",
-      description: "International Shipping Contract",
-      amount: 25000,
-      currency: "XRP",
-      status: "Completed",
-      direction: "outgoing",
-    },
-    {
-      id: "TXN-002",
-      date: "2025-03-18",
-      type: "Escrow Release",
-      description: "Warehouse Storage Payment",
-      amount: 5000,
-      currency: "XRP",
-      status: "Completed",
-      direction: "incoming",
-    },
-    {
-      id: "TXN-003",
-      date: "2025-03-15",
-      type: "Escrow Cancel",
-      description: "Cancelled Freight Contract",
-      amount: 12000,
-      currency: "XRP",
-      status: "Cancelled",
-      direction: "refund",
-    },
-    {
-      id: "TXN-004",
-      date: "2025-03-12",
-      type: "Escrow Create",
-      description: "Domestic Freight Services",
-      amount: 8500,
-      currency: "XRP",
-      status: "Pending",
-      direction: "outgoing",
-    },
-    {
-      id: "TXN-005",
-      date: "2025-03-10",
-      type: "Escrow Release",
-      description: "International Shipping Milestone",
-      amount: 10000,
-      currency: "XRP",
-      status: "Completed",
-      direction: "outgoing",
-    },
-  ]
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const meRes = await fetch("/api/me")
+        const meData = await meRes.json()
+
+        if (!meData.loggedIn) return
+
+        const res = await fetch("/api/transactions")
+        const data = await res.json()
+
+        if (data.transactions) {
+          setTransactions(data.transactions)
+        }
+      } catch (err) {
+        console.error("Failed to fetch transactions", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTransactions()
+  }, [])
 
   return (
     <Card>
@@ -96,61 +82,75 @@ export default function RecentTransactions() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell className="font-medium">{transaction.id}</TableCell>
-                  <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                  <TableCell>{transaction.type}</TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      {transaction.direction === "incoming" ? (
-                        <ArrowUp className="mr-1 h-4 w-4 text-green-600" />
-                      ) : transaction.direction === "outgoing" ? (
-                        <ArrowDown className="mr-1 h-4 w-4 text-red-600" />
-                      ) : (
-                        <ArrowRight className="mr-1 h-4 w-4 text-gray-600" />
-                      )}
-                      <span
-                        className={
-                          transaction.direction === "incoming"
-                            ? "text-green-600"
-                            : transaction.direction === "outgoing"
-                              ? "text-red-600"
-                              : "text-gray-600"
-                        }
-                      >
-                        {transaction.amount.toLocaleString()} {transaction.currency}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        transaction.status === "Completed"
-                          ? "default"
-                          : transaction.status === "Pending"
-                            ? "outline"
-                            : "secondary"
-                      }
-                      className={
-                        transaction.status === "Completed"
-                          ? "bg-green-500"
-                          : transaction.status === "Pending"
-                            ? "border-yellow-500 text-yellow-500"
-                            : "bg-red-500"
-                      }
-                    >
-                      {transaction.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/transactions/${transaction.id}`}>Details</Link>
-                    </Button>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-6 text-gray-500">
+                    Loading...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : transactions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-6 text-gray-500">
+                    No transactions found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                transactions.map((tx) => (
+                  <TableRow key={tx.id}>
+                    <TableCell className="font-medium">{tx.id}</TableCell>
+                    <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{tx.type}</TableCell>
+                    <TableCell>{tx.description}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        {tx.direction === "incoming" ? (
+                          <ArrowUp className="mr-1 h-4 w-4 text-green-600" />
+                        ) : tx.direction === "outgoing" ? (
+                          <ArrowDown className="mr-1 h-4 w-4 text-red-600" />
+                        ) : (
+                          <ArrowRight className="mr-1 h-4 w-4 text-gray-600" />
+                        )}
+                        <span
+                          className={
+                            tx.direction === "incoming"
+                              ? "text-green-600"
+                              : tx.direction === "outgoing"
+                              ? "text-red-600"
+                              : "text-gray-600"
+                          }
+                        >
+                          {tx.amount.toLocaleString()} {tx.currency}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          tx.status === "Completed"
+                            ? "default"
+                            : tx.status === "Pending"
+                            ? "outline"
+                            : "secondary"
+                        }
+                        className={
+                          tx.status === "Completed"
+                            ? "bg-green-500"
+                            : tx.status === "Pending"
+                            ? "border-yellow-500 text-yellow-500"
+                            : "bg-red-500"
+                        }
+                      >
+                        {tx.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/transactions/${tx.id}`}>Details</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -166,4 +166,3 @@ export default function RecentTransactions() {
     </Card>
   )
 }
-
