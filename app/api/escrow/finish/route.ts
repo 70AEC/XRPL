@@ -1,4 +1,3 @@
-// /app/api/escrow/finish/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { XummSdk } from "xumm-sdk"
 import { Client, Wallet } from "xrpl"
@@ -9,10 +8,10 @@ const xumm = new XummSdk(
 )
 
 const XRPL_ENDPOINT = "wss://s.altnet.rippletest.net:51233"
-const ADMIN_SECRET = process.env.XRPL_ADMIN_SEED as string
+const ADMIN_SECRET = process.env.XRPL_ADMIN_SEED!
 const adminWallet = Wallet.fromSeed(ADMIN_SECRET)
 
-// Simple in-memory store (replace with DB in production)
+// In-memory cache (use DB in production)
 const signedTxStore: Record<number, { userA?: string; userB?: string }> = {}
 
 export async function POST(req: NextRequest) {
@@ -22,24 +21,33 @@ export async function POST(req: NextRequest) {
       role,
       userA,
       userB,
-    }: { offerSequence: number; role: 'userA' | 'userB'; userA: string; userB: string } = await req.json()
+    }: { offerSequence: number; role: "userA" | "userB"; userA: string; userB: string } = await req.json()
 
     if (!offerSequence || !role || !userA || !userB) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const payloads = await xumm.payload.get('')
+    // Manually retrieve recent payloads (no history() in SDK)
+    const payloadRes = await fetch("https://xumm.app/api/v1/platform/payloads", {
+      headers: {
+        "X-API-Key": process.env.NEXT_PUBLIC_XUMM_API_KEY!,
+        "X-API-Secret": process.env.XUMM_API_SECRET!,
+      },
+    })
 
-    const matchedPayload = Array.isArray(payloads?.payload) ? payloads.payload.find(p => {
-      const tx = p?.request?.json
-      return (
-        tx?.TransactionType === "EscrowFinish" &&
-        tx?.OfferSequence === offerSequence &&
-        tx?.Account === (role === 'userA' ? userA : userB)
-      )
-    }) : undefined
+    const payloads = await payloadRes.json()
+    const matchedPayload = Array.isArray(payloads?.payloads)
+      ? payloads.payloads.find((p: any) => {
+          const tx = p?.request?.json
+          return (
+            tx?.TransactionType === "EscrowFinish" &&
+            tx?.OfferSequence === offerSequence &&
+            tx?.Account === (role === "userA" ? userA : userB)
+          )
+        })
+      : undefined
 
-    if (!matchedPayload || !matchedPayload.uuid) {
+    if (!matchedPayload?.uuid) {
       return NextResponse.json({ error: "Matching signed payload not found." }, { status: 404 })
     }
 
@@ -51,18 +59,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Transaction not signed yet" }, { status: 400 })
     }
 
-    const expectedAddress = role === 'userA' ? userA : userB
+    const expectedAddress = role === "userA" ? userA : userB
     if (signer !== expectedAddress) {
-      return NextResponse.json({ error: `Signer does not match selected role: expected ${expectedAddress}` }, { status: 400 })
+      return NextResponse.json({
+        error: `Signer mismatch: expected ${expectedAddress}, got ${signer}`,
+      }, { status: 400 })
     }
 
-    // Store the signed tx_blob
-    if (!signedTxStore[offerSequence]) {
-      signedTxStore[offerSequence] = {}
-    }
+    if (!signedTxStore[offerSequence]) signedTxStore[offerSequence] = {}
     signedTxStore[offerSequence][role] = txBlob
 
     const bothSigned = signedTxStore[offerSequence].userA && signedTxStore[offerSequence].userB
+
     if (bothSigned) {
       const client = new Client(XRPL_ENDPOINT)
       await client.connect()
@@ -85,10 +93,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Waiting for ${role === 'userA' ? 'userB' : 'userA'} to sign.`,
+      message: `Signed by ${role}. Waiting for ${role === "userA" ? "userB" : "userA"}.`,
     })
   } catch (error: any) {
-    console.error("Error handling EscrowFinish flow:", error)
+    console.error("❌ EscrowFinish error:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
