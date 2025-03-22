@@ -8,11 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
-import { CalendarIcon, Clock, FileText, Info, Plus, Trash2 } from "lucide-react"
+import { FileText, Info, Plus, Trash2 } from "lucide-react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -22,8 +18,7 @@ import DashboardSidebar from "@/components/dashboard/dashboard-sidebar"
 export default function CreateEscrowPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [step, setStep] = useState(1)
-  const [escrowType, setEscrowType] = useState("time")
-  const [releaseDate, setReleaseDate] = useState<Date | undefined>(undefined)
+  const [escrowType, setEscrowType] = useState("condition")
   const [milestones, setMilestones] = useState([
     { title: "Initial Deposit", percentage: 20, completed: false },
     { title: "Shipping Confirmation", percentage: 30, completed: false },
@@ -31,6 +26,10 @@ export default function CreateEscrowPage() {
     { title: "Delivery Confirmation", percentage: 20, completed: false },
   ])
   const [isLoading, setIsLoading] = useState(false)
+  const [contractTitle, setContractTitle] = useState("")
+  const [partnerAddress, setPartnerAddress] = useState("")
+  const [escrowAmount, setEscrowAmount] = useState("")
+  const [description, setDescription] = useState("")
   const router = useRouter()
 
   const handleAddMilestone = () => {
@@ -55,9 +54,27 @@ export default function CreateEscrowPage() {
     setStep(step - 1)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsLoading(true)
-    // Simulate API call
+
+    const payload = {
+      contractTitle,
+      partnerAddress,
+      escrowAmount: parseFloat(escrowAmount),
+      description,
+      escrowType,
+      milestones,
+    }
+
+    console.log("Submitting escrow contract:", payload)
+
+    // TODO: Replace with smart contract API call
+    await fetch("/api/escrow/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+
     setTimeout(() => {
       setIsLoading(false)
       router.push("/escrow/success")
@@ -93,18 +110,34 @@ export default function CreateEscrowPage() {
                   >
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="contract-title">Contract Title</Label>
-                        <Input id="contract-title" placeholder="e.g., International Shipping Contract" />
+                      <Label htmlFor="contract-title">Contract Title</Label>
+                        <Input
+                          id="contract-title"
+                          placeholder="e.g., International Shipping Contract"
+                          value={contractTitle}
+                          onChange={(e) => setContractTitle(e.target.value)}
+                        />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                      <div className="space-y-2">
                           <Label htmlFor="partner-address">Partner XRPL Address</Label>
-                          <Input id="partner-address" placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+                          <Input
+                            id="partner-address"
+                            placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                            value={partnerAddress}
+                            onChange={(e) => setPartnerAddress(e.target.value)}
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="escrow-amount">Escrow Amount (XRP)</Label>
-                          <Input id="escrow-amount" type="number" placeholder="0.00" />
+                          <Input
+                            id="escrow-amount"
+                            type="number"
+                            placeholder="0.00"
+                            value={escrowAmount}
+                            onChange={(e) => setEscrowAmount(e.target.value)}
+                          />
                         </div>
                       </div>
 
@@ -114,26 +147,19 @@ export default function CreateEscrowPage() {
                           id="description"
                           placeholder="Describe the purpose and terms of this escrow contract"
                           className="min-h-[100px]"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
                         />
                       </div>
 
                       <div className="space-y-2">
                         <Label>Escrow Type</Label>
                         <RadioGroup
-                          defaultValue="time"
+                          defaultValue="condition"
                           onValueChange={setEscrowType}
                           className="grid grid-cols-1 md:grid-cols-2 gap-4"
                         >
-                          <div className="flex items-center space-x-2 border rounded-md p-4 cursor-pointer hover:bg-gray-50">
-                            <RadioGroupItem value="time" id="time" />
-                            <Label htmlFor="time" className="flex items-center cursor-pointer">
-                              <Clock className="w-5 h-5 mr-2 text-blue-600" />
-                              <div>
-                                <div className="font-medium">Time-Based Escrow</div>
-                                <div className="text-sm text-gray-500">Release funds after a specific date</div>
-                              </div>
-                            </Label>
-                          </div>
+
                           <div className="flex items-center space-x-2 border rounded-md p-4 cursor-pointer hover:bg-gray-50">
                             <RadioGroupItem value="condition" id="condition" />
                             <Label htmlFor="condition" className="flex items-center cursor-pointer">
@@ -157,55 +183,7 @@ export default function CreateEscrowPage() {
                     exit={{ opacity: 0 }}
                     className="space-y-6"
                   >
-                    {escrowType === "time" ? (
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Release Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {releaseDate ? format(releaseDate, "PPP") : "Select a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar mode="single" selected={releaseDate} onSelect={setReleaseDate} initialFocus />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="cancel-after">Cancel After (days)</Label>
-                            <span className="text-sm text-gray-500">30 days</span>
-                          </div>
-                          <Slider defaultValue={[30]} min={1} max={90} step={1} />
-                          <p className="text-sm text-gray-500">
-                            If the escrow is not executed by the release date, it can be cancelled after this many days.
-                          </p>
-                        </div>
-
-                        <div className="space-y-2 border-t pt-4">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="require-destination-tag">Require Destination Tag</Label>
-                            <Switch id="require-destination-tag" />
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            Require a destination tag when releasing funds to the recipient.
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="enable-notifications">Enable Email Notifications</Label>
-                            <Switch id="enable-notifications" defaultChecked />
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            Receive email notifications about escrow status changes.
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
+                    {(
                       <div className="space-y-6">
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-medium">Milestone Configuration</h3>
@@ -292,31 +270,26 @@ export default function CreateEscrowPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                           <div>
                             <h4 className="text-sm font-medium text-gray-500">Contract Title</h4>
-                            <p>International Shipping Contract</p>
+                            <p>{contractTitle}</p>
                           </div>
                           <div>
                             <h4 className="text-sm font-medium text-gray-500">Escrow Amount</h4>
-                            <p>25,000 XRP</p>
+                            <p>{escrowAmount} XRP</p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                           <div>
                             <h4 className="text-sm font-medium text-gray-500">Partner Address</h4>
-                            <p className="font-mono text-sm">rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh</p>
+                            <p className="font-mono text-sm">{partnerAddress}</p>
                           </div>
                           <div>
                             <h4 className="text-sm font-medium text-gray-500">Escrow Type</h4>
-                            <p>{escrowType === "time" ? "Time-Based Escrow" : "Milestone-Based Escrow"}</p>
+                            <p>{"Milestone-Based Escrow"}</p>
                           </div>
                         </div>
 
-                        {escrowType === "time" ? (
-                          <div className="p-4">
-                            <h4 className="text-sm font-medium text-gray-500">Release Date</h4>
-                            <p>{releaseDate ? format(releaseDate, "PPP") : "Not set"}</p>
-                          </div>
-                        ) : (
+                        
                           <div className="p-4">
                             <h4 className="text-sm font-medium text-gray-500">Milestones</h4>
                             <div className="mt-2 space-y-2">
@@ -328,14 +301,12 @@ export default function CreateEscrowPage() {
                               ))}
                             </div>
                           </div>
-                        )}
+                        
 
                         <div className="p-4">
                           <h4 className="text-sm font-medium text-gray-500">Description</h4>
-                          <p className="text-sm">
-                            This escrow contract is for international shipping services between our company and Global
-                            Logistics Inc.
-                          </p>
+                          <p className="text-sm">{description}</p>
+
                         </div>
                       </div>
 
