@@ -60,10 +60,11 @@ export async function GET() {
         destination: transaction.Destination || "N/A",
         finishAfter: transaction.FinishAfter || 0,
         cancelAfter: transaction.CancelAfter || 0,
+        sequence: transaction.Sequence || 0,
         memos,
       }
     })
-    console.log("Decoded Escrow Transactions:", JSON.stringify(decoded, null, 2)) 
+    //console.log("Decoded Escrow Transactions:", JSON.stringify(decoded, null, 2)) 
     await client.disconnect()
     return NextResponse.json({ escrows: decoded })
   } catch (err: any) {
