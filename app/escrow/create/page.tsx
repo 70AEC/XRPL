@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 
@@ -34,21 +34,8 @@ export default function CreateEscrowPage() {
   const [partnerAddress, setPartnerAddress] = useState(defaultPartnerAddress)
   const [escrowAmount, setEscrowAmount] = useState("")
   const [description, setDescription] = useState("")
-  const [address, setAddress] = useState("")
-
   const router = useRouter()
-  useEffect(() => {
-    const getMe = async () => {
-      const res = await fetch("/api/me")
-      const data = await res.json()
-      if (data.loggedIn) {
-        setAddress(data.address)
-      }
-    }
-  
-    getMe()
-  }, [])
-  
+
   const handleAddMilestone = () => {
     setMilestones([...milestones, { title: "", percentage: 0, completed: false }])
   }
@@ -76,37 +63,18 @@ export default function CreateEscrowPage() {
       description,
       escrowType,
       milestones,
-      userA: address,
-      userB: partnerAddress,
     }
 
-    try {
-      const res = await fetch("/api/escrow/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-  
-      const data = await res.json()
-  
-      if (data.success && data.payloads?.length > 0) {
-        for (const p of data.payloads) {
-          window.open(p.next, "_blank")
-        }
-  
-        // Optional: 대기 후 이동
-        setTimeout(() => {
-          router.push("/escrow/success")
-        }, 4000)
-      } else {
-        alert("Failed to create escrow payloads.")
-      }
-    } catch (err) {
-      console.error("Escrow creation failed:", err)
-      alert("Something went wrong. Check the console.")
-    } finally {
+    await fetch("/api/escrow/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+
+    setTimeout(() => {
       setIsLoading(false)
-    }
+      router.push("/escrow/success")
+    }, 2000)
   }
 
   return (
@@ -148,8 +116,7 @@ export default function CreateEscrowPage() {
                           <Input
                             id="partner-address"
                             value={partnerAddress}
-                            onChange={(e) => setPartnerAddress(e.target.value)}
-                            
+                            readOnly
                           />
                         </div>
                         <div className="space-y-2">
