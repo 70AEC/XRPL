@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,21 +19,22 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const pollLoginStatus = (uuid: string, popup: Window | null) => {
-    const interval = setInterval(async () => {
-      const res = await fetch(`/api/xumm-status?uuid=${uuid}`)
+  const checkUserKYBStatus = async (walletAddress: string) => {
+    try {
+      const res = await fetch(`/api/check-kyb?walletAddress=${walletAddress}`)
       const data = await res.json()
 
-      if (data.success) {
-        clearInterval(interval)
+      console.log("✅ KYB check response:", data)
 
-        if (popup && !popup.closed) {
-          popup.close()
-        }
-
+      if (data.exists && data.kybVerified) {
         router.push("/dashboard")
+      } else {
+        router.push("/auth/register")
       }
-    }, 2000)
+    } catch (err) {
+      console.error("KYB check failed", err)
+      router.push("/auth/register")
+    }
   }
 
   const handleXummLogin = async () => {
@@ -49,6 +49,7 @@ export default function LoginPage() {
       })
 
       const data = await res.json()
+
       if (data?.next && data?.uuid) {
         const popup = window.open(
           data.next,
@@ -56,21 +57,58 @@ export default function LoginPage() {
           "width=460,height=700"
         )
 
-        pollLoginStatus(data.uuid, popup)
+        const poll = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/xumm-status?uuid=${data.uuid}`)
+            const status = await res.json()
 
-        const messageListener = (event: MessageEvent) => {
+            if (status.success && status.walletAddress) {
+              clearInterval(poll)
+              if (popup && !popup.closed) popup.close()
+              await checkUserKYBStatus(status.walletAddress)
+            } else if (status.success) {
+              // ✅ fallback: success는 true지만 walletAddress 누락 등
+              clearInterval(poll)
+              if (popup && !popup.closed) popup.close()
+              router.push("/auth/register")
+            }
+
+          } catch (err) {
+            console.error("Polling failed", err)
+            clearInterval(poll)
+            if (popup && !popup.closed) popup.close()
+            router.push("/auth/register")
+          }
+        }, 2000)
+
+        const handleMessage = async (event: MessageEvent) => {
           if (event.origin !== window.location.origin) return
           if (event.data === "xumm:signed") {
+            clearInterval(poll)
             popup?.close()
-            window.removeEventListener("message", messageListener)
-            router.push("/dashboard")
+            window.removeEventListener("message", handleMessage)
+
+            try {
+              const res = await fetch(`/api/xumm-status?uuid=${data.uuid}`)
+              const status = await res.json()
+
+              if (status.success && status.walletAddress) {
+                await checkUserKYBStatus(status.walletAddress)
+              } else {
+                router.push("/auth/register")
+              }
+            } catch (err) {
+              console.error("XUMM message check failed", err)
+              router.push("/auth/register")
+            }
           }
         }
 
-        window.addEventListener("message", messageListener)
+        window.addEventListener("message", handleMessage, { once: true })
       }
     } catch (error) {
       console.error("XUMM login failed", error)
+      router.push("/auth/register")
     } finally {
       setIsLoading(false)
     }

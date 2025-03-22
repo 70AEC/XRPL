@@ -25,9 +25,7 @@ export default function RegisterPage() {
     try {
       const res = await fetch("/api/xumm", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       })
 
       const data = await res.json()
@@ -39,27 +37,61 @@ export default function RegisterPage() {
           "width=460,height=700"
         )
 
-        const interval = setInterval(async () => {
-          const res = await fetch(`/api/xumm-status?uuid=${data.uuid}`)
-          const status = await res.json()
+        const handleComplete = async () => {
+          try {
+            const registerRes = await fetch("/api/register-user", {
+              method: "POST",
+            })
 
-          if (status.success) {
-            clearInterval(interval)
-            popup?.close()
-            router.push("/kyb")
-          }
-        }, 2000)
-
-        const messageListener = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return
-          if (event.data === "xumm:signed") {
-            popup?.close()
-            window.removeEventListener("message", messageListener)
-            router.push("/kyb")
+            if (registerRes.ok) {
+              console.log("✅ User registered via session")
+              await router.push("/kyb")
+            } else {
+              console.error("❌ Registration failed")
+            }
+          } catch (err) {
+            console.error("❌ Register API failed", err)
           }
         }
 
-        window.addEventListener("message", messageListener)
+        const poll = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/xumm-status?uuid=${data.uuid}`)
+            const status = await res.json()
+
+            if (status.success) {
+              clearInterval(poll)
+              if (popup && !popup.closed) popup.close()
+              await handleComplete()
+            }
+          } catch (err) {
+            console.error("Polling failed", err)
+            clearInterval(poll)
+            if (popup && !popup.closed) popup.close()
+          }
+        }, 2000)
+
+        const handleMessage = async (event: MessageEvent) => {
+          if (event.origin !== window.location.origin) return
+          if (event.data === "xumm:signed") {
+            clearInterval(poll)
+            popup?.close()
+            window.removeEventListener("message", handleMessage)
+
+            try {
+              const res = await fetch(`/api/xumm-status?uuid=${data.uuid}`)
+              const status = await res.json()
+
+              if (status.success) {
+                await handleComplete()
+              }
+            } catch (err) {
+              console.error("Message check failed", err)
+            }
+          }
+        }
+
+        window.addEventListener("message", handleMessage, { once: true })
       }
     } catch (error) {
       console.error("XUMM registration failed", error)
@@ -109,4 +141,3 @@ export default function RegisterPage() {
     </div>
   )
 }
-
