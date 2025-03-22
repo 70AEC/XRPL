@@ -116,7 +116,7 @@ export default function CreateEscrowPage() {
                           <Input
                             id="partner-address"
                             value={partnerAddress}
-                            readOnly
+                            onChange={(e) => setPartnerAddress(e.target.value)}
                           />
                         </div>
                         <div className="space-y-2">
