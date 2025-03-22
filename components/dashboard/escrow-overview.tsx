@@ -173,7 +173,7 @@ export default function EscrowOverview() {
                 <div className="flex items-center">
                   <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
                   <div>
-                    <h4 className="font-medium">KYB Verification</h4>
+                    <h4 className="font-medium text-black">KYB Verification</h4>
                     <p className="text-sm text-gray-600">Business identity verified</p>
                   </div>
                 </div>
@@ -184,7 +184,7 @@ export default function EscrowOverview() {
                 <div className="flex items-center">
                   <Lock className="h-5 w-5 text-blue-600 mr-2" />
                   <div>
-                    <h4 className="font-medium">XRPL Wallet</h4>
+                    <h4 className="font-medium text-black">XRPL Wallet</h4>
                     <p className="text-sm text-gray-600">Wallet connected and verified</p>
                   </div>
                 </div>
