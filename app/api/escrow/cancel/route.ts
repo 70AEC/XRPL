@@ -1,40 +1,47 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { cancelEscrow, connectWallet } from "@/lib/xrpl-client"
+// /app/api/escrow/cancel/route.ts
+import { NextRequest, NextResponse } from "next/server"
+import { Client, Wallet, EscrowCancel } from "xrpl"
+
+const XRPL_ENDPOINT = "wss://s.altnet.rippletest.net:51233" // ✅ WebSocket 기반 (Testnet)
+const ADMIN_SECRET = process.env.XRPL_API_SECRET as string
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { seed, owner, offerSequence } = body
+    const { owner, offerSequence } = await req.json()
 
-    // Validate required fields
-    if (!seed || !owner || !offerSequence) {
-      return NextResponse.json(
-        { error: "Missing required fields: seed, owner, and offerSequence are required" },
-        { status: 400 },
-      )
+    if (!owner || !offerSequence) {
+      return NextResponse.json({ error: "Missing owner or offerSequence" }, { status: 400 })
     }
 
-    // Connect wallet
-    const walletResult = await connectWallet(seed)
-    if (!walletResult.success) {
-      return NextResponse.json({ error: "Failed to connect wallet", details: walletResult.error }, { status: 500 })
+    const client = new Client(XRPL_ENDPOINT)
+    await client.connect()
+
+    const adminWallet = Wallet.fromSeed(ADMIN_SECRET)
+
+    const cancelTx: EscrowCancel = {
+      TransactionType: "EscrowCancel",
+      Account: adminWallet.classicAddress,
+      Owner: owner,
+      OfferSequence: offerSequence,
     }
 
-    // Cancel escrow
-    const escrowResult = await cancelEscrow(walletResult.wallet, owner, offerSequence)
+    const prepared = await client.autofill(cancelTx)
+    const signed = adminWallet.sign(prepared)
+    const submitted = await client.submitAndWait(signed.tx_blob)
 
-    if (!escrowResult.success) {
-      return NextResponse.json({ error: "Failed to cancel escrow", details: escrowResult.error }, { status: 500 })
-    }
+    await client.disconnect()
 
-    // Return success response
+    const txResult = submitted.result.meta && typeof submitted.result.meta !== "string"
+      ? submitted.result.meta.TransactionResult
+      : "UNKNOWN"
+
     return NextResponse.json({
       success: true,
-      transaction: escrowResult.result,
+      txHash: submitted.result.hash,
+      result: txResult,
     })
-  } catch (error) {
-    console.error("Error in escrow cancel API:", error)
-    return NextResponse.json({ error: "Internal server error", details: error }, { status: 500 })
+  } catch (error: any) {
+    console.error("Error cancelling escrow:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
-
