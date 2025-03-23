@@ -32,6 +32,9 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<EscrowTx[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [modalOpen, setModalOpen] = useState(false)
+  const [qrUrl, setQrUrl] = useState("")
+
   useEffect(() => {
     const fetchData = async () => {
       const meRes = await fetch("/api/me")
@@ -59,33 +62,33 @@ export default function TransactionsPage() {
     const cookies = document.cookie
     const match = cookies.match(/xrp_address=([^;]+)/)
     const userAddress = match ? decodeURIComponent(match[1]) : null
-  
+
     if (!userAddress || !parentMemo.data?.userA || !parentMemo.data?.userB) {
       alert("🚨 Missing user address or contract info.")
       return
     }
-  
+
     const role =
       userAddress === parentMemo.data.userA
         ? "userA"
         : userAddress === parentMemo.data.userB
           ? "userB"
           : null
-  
+
     if (!role) {
       alert("🚫 You are not a participant in this contract.")
       return
     }
-  
+
     const txJson = {
       TransactionType: "EscrowFinish",
       Account: userAddress,
       Owner: parentMemo.data.owner || parentMemo.data.userA,
       OfferSequence: tx.sequence,
     }
-  
+
     console.log("📦 txJson to be signed:", txJson)
-  
+
     const payloadRes = await fetch("/api/escrow/multisign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,22 +97,23 @@ export default function TransactionsPage() {
         txJson,
       }),
     })
-  
+
     const { uuid, next, error } = await payloadRes.json()
     console.log("🧾 Payload creation response:", { uuid, next, error })
-  
+
     if (!uuid || error) {
       alert("❌ Failed to create signing payload.")
       return
     }
-  
-    window.open(`https://xumm.app/sign/${uuid}`, "_blank")
-  
-    // 🔁 반복 풀링 로직 (최대 30초 동안, 1.5초마다 체크)
+
+    // 📌 모달로 QR 코드 띄우기
+    setQrUrl(`https://xumm.app/sign/${uuid}`)
+    setModalOpen(true)
+
+    // 🔁 반복 풀링 로직
     const maxTries = 20
     let tryCount = 0
-    let signed = false
-  
+
     const pollSignature = async () => {
       tryCount++
       const res = await fetch("/api/escrow/multisign", {
@@ -121,12 +125,11 @@ export default function TransactionsPage() {
         }),
       })
       const result = await res.json()
-  
+
       if (result.success) {
-        signed = true
         alert("✅ Signature collected!")
-  
-        // 🧾 자동 제출 (2명 이상일 때)
+        setModalOpen(false)
+
         if (result.collected >= 2) {
           const submitRes = await fetch("/api/escrow/multisign", {
             method: "POST",
@@ -136,7 +139,7 @@ export default function TransactionsPage() {
               sequence: result.sequence,
             }),
           })
-  
+
           const submitData = await submitRes.json()
           if (submitData.success) {
             alert("🚀 EscrowFinish transaction submitted successfully!")
@@ -150,13 +153,12 @@ export default function TransactionsPage() {
         setTimeout(pollSignature, 1500)
       } else {
         alert("⌛️ Timed out waiting for signature.")
+        setModalOpen(false)
       }
     }
-  
+
     pollSignature()
   }
-  
-  
 
   return (
     <div className="flex h-screen bg-white">
@@ -178,7 +180,9 @@ export default function TransactionsPage() {
                       <AccordionTrigger className="text-left px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-md hover:bg-zinc-700">
                         <div className="flex justify-between w-full text-sm font-medium">
                           <span>{tx.hash.slice(0, 12)}...</span>
-                          <span className="text-gray-300">{formatXRP(tx.amount)} • {formatDate(tx.finishAfter)}</span>
+                          <span className="text-gray-300">
+                            {formatXRP(tx.amount)} • {formatDate(tx.finishAfter)}
+                          </span>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="bg-zinc-800 border border-zinc-700 rounded-md p-4 mt-2 space-y-4 text-sm">
@@ -223,6 +227,23 @@ export default function TransactionsPage() {
           </div>
         </main>
       </div>
+
+      {/* Modal for XUMM QR */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white rounded-lg p-4 max-w-lg w-full shadow-lg relative">
+            <h2 className="text-lg font-bold mb-4">📱 Scan QR with XUMM</h2>
+            <iframe
+              src={qrUrl}
+              className="w-full h-[600px] rounded border"
+              title="XUMM QR"
+            />
+            <Button onClick={() => setModalOpen(false)} className="mt-4 bg-red-600 hover:bg-red-700 text-white">
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
