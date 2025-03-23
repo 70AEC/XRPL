@@ -62,12 +62,13 @@ export async function POST(req) {
       const autofilled = await client.autofill(txJson)
       await client.disconnect()
 
+      const signerCount = 2 // 현재 서명자 수에 맞게 설정하거나 동적으로 계산
+
       const multisignTx = {
         ...autofilled,
         SigningPubKey: "",
-        Fee: (parseInt(autofilled.Fee || "12") * 3).toString(), // 서명자 수 고려
+        Fee: (parseInt(autofilled.Fee || "12") * (signerCount + 1)).toString(),
       }
-
       console.log("🚀 Sending to XUMM payload.create:", multisignTx)
 
       const payload = await xumm.payload.create({
