@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 
@@ -34,8 +34,21 @@ export default function CreateEscrowPage() {
   const [partnerAddress, setPartnerAddress] = useState(defaultPartnerAddress)
   const [escrowAmount, setEscrowAmount] = useState("")
   const [description, setDescription] = useState("")
-  const router = useRouter()
+  const [address, setAddress] = useState("")
 
+  const router = useRouter()
+  useEffect(() => {
+    const getMe = async () => {
+      const res = await fetch("/api/me")
+      const data = await res.json()
+      if (data.loggedIn) {
+        setAddress(data.address)
+      }
+    }
+  
+    getMe()
+  }, [])
+  
   const handleAddMilestone = () => {
     setMilestones([...milestones, { title: "", percentage: 0, completed: false }])
   }
@@ -55,7 +68,7 @@ export default function CreateEscrowPage() {
 
   const handleSubmit = async () => {
     setIsLoading(true)
-  
+
     const payload = {
       contractTitle,
       partnerAddress,
@@ -63,10 +76,10 @@ export default function CreateEscrowPage() {
       description,
       escrowType,
       milestones,
-      userA: "rUFGBoYQjMUKVZtdh6tsyjQ3hd4RzYYerH", // 👈 임시로 넣어둠 (실제론 세션에서 가져와야 함)
+      userA: address,
       userB: partnerAddress,
     }
-  
+
     try {
       const res = await fetch("/api/escrow/create", {
         method: "POST",
@@ -77,20 +90,24 @@ export default function CreateEscrowPage() {
       const data = await res.json()
   
       if (data.success && data.payloads?.length > 0) {
-        // 🎯 첫 번째 페이로드로 바로 이동
-        const first = data.payloads[0]
-        window.location.href = first.next
+        for (const p of data.payloads) {
+          window.open(p.next, "_blank")
+        }
+  
+        // Optional: 대기 후 이동
+        setTimeout(() => {
+          router.push("/escrow/success")
+        }, 4000)
       } else {
-        alert("❌ 페이로드 생성 실패: " + (data.error || "알 수 없는 오류"))
+        alert("Failed to create escrow payloads.")
       }
     } catch (err) {
-      console.error("🚨 에러 발생:", err)
-      alert("에스크로 생성 중 오류가 발생했어요.")
+      console.error("Escrow creation failed:", err)
+      alert("Something went wrong. Check the console.")
+    } finally {
+      setIsLoading(false)
     }
-  
-    setIsLoading(false)
   }
-  
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -132,6 +149,7 @@ export default function CreateEscrowPage() {
                             id="partner-address"
                             value={partnerAddress}
                             onChange={(e) => setPartnerAddress(e.target.value)}
+                            
                           />
                         </div>
                         <div className="space-y-2">
