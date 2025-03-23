@@ -59,33 +59,33 @@ export default function TransactionsPage() {
     const cookies = document.cookie
     const match = cookies.match(/xrp_address=([^;]+)/)
     const userAddress = match ? decodeURIComponent(match[1]) : null
-
+  
     if (!userAddress || !parentMemo.data?.userA || !parentMemo.data?.userB) {
       alert("🚨 Missing user address or contract info.")
       return
     }
-
+  
     const role =
       userAddress === parentMemo.data.userA
         ? "userA"
         : userAddress === parentMemo.data.userB
           ? "userB"
           : null
-
+  
     if (!role) {
       alert("🚫 You are not a participant in this contract.")
       return
     }
-
+  
     const txJson = {
       TransactionType: "EscrowFinish",
       Account: userAddress,
       Owner: parentMemo.data.owner || parentMemo.data.userA,
       OfferSequence: tx.sequence,
     }
-
+  
     console.log("📦 txJson to be signed:", txJson)
-
+  
     const payloadRes = await fetch("/api/escrow/multisign", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,17 +94,17 @@ export default function TransactionsPage() {
         txJson,
       }),
     })
-
+  
     const { uuid, next, error } = await payloadRes.json()
     console.log("🧾 Payload creation response:", { uuid, next, error })
-
+  
     if (!uuid || error) {
       alert("❌ Failed to create signing payload.")
       return
     }
-
+  
     window.open(`https://xumm.app/sign/${uuid}`, "_blank")
-
+  
     setTimeout(async () => {
       const finishRes = await fetch("/api/escrow/multisign", {
         method: "POST",
@@ -114,11 +114,39 @@ export default function TransactionsPage() {
           uuid,
         }),
       })
-
+  
       const result = await finishRes.json()
-      alert(result.success ? "✅ Signature collected!" : result.error || "❌ Failed to collect signature.")
+  
+      if (!result.success) {
+        alert(result.error || "❌ Failed to collect signature.")
+        return
+      }
+  
+      alert("✅ Signature collected!")
+  
+      // 🔁 서명자 수 2명 이상이면 자동 제출
+      if (result.collected >= 2) {
+        const submitRes = await fetch("/api/escrow/multisign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "submitMultisigned",
+            sequence: result.sequence,
+          }),
+        })
+  
+        const submitData = await submitRes.json()
+        if (submitData.success) {
+          alert("🚀 EscrowFinish transaction submitted successfully!")
+        } else {
+          alert("❌ Failed to submit transaction: " + submitData.error)
+        }
+      } else {
+        alert("🕓 Waiting for another signature...")
+      }
     }, 10000)
   }
+  
 
   return (
     <div className="flex h-screen bg-white">

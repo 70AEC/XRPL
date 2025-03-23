@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { XummSdk } from "xumm-sdk"
-import { Client, Wallet, SignerListSet, decode } from "xrpl"
+import { Client, Wallet, decode } from "xrpl"
 
 const xumm = new XummSdk(
   process.env.NEXT_PUBLIC_XUMM_API_KEY,
@@ -12,31 +12,35 @@ const ADMIN_SECRET = process.env.XRPL_ADMIN_SEED
 const adminWallet = Wallet.fromSeed(ADMIN_SECRET)
 
 const signedTxStore = {}
-let txJsonStore = {}
+const txJsonStore = {}
 
 export async function POST(req) {
   try {
     const body = await req.json()
     const { action } = body
 
+    // 1️⃣ 서명자 리스트 설정
     if (action === "setSignerList") {
       const { signerAccounts } = body
-      if (!signerAccounts || !Array.isArray(signerAccounts)) {
+      if (!Array.isArray(signerAccounts)) {
         return NextResponse.json({ error: "Missing signer accounts" }, { status: 400 })
       }
 
-      const signerListTx = {
+      const tx = {
         TransactionType: "SignerListSet",
         Account: adminWallet.classicAddress,
         SignerQuorum: signerAccounts.length,
         SignerEntries: signerAccounts.map(account => ({
-          SignerEntry: { Account: account, SignerWeight: 1 },
+          SignerEntry: {
+            Account: account,
+            SignerWeight: 1,
+          },
         })),
       }
 
       const client = new Client(XRPL_ENDPOINT)
       await client.connect()
-      const prepared = await client.autofill(signerListTx)
+      const prepared = await client.autofill(tx)
       const signed = adminWallet.sign(prepared)
       const result = await client.submitAndWait(signed.tx_blob)
       await client.disconnect()
@@ -44,6 +48,7 @@ export async function POST(req) {
       return NextResponse.json({ success: true, result })
     }
 
+    // 2️⃣ 페이로드 생성
     if (action === "createPayload") {
       const { txJson } = body
       if (!txJson) {
@@ -57,11 +62,10 @@ export async function POST(req) {
       const autofilled = await client.autofill(txJson)
       await client.disconnect()
 
-      console.log("🧩 Autofilled txJson", autofilled)
-
       const multisignTx = {
         ...autofilled,
         SigningPubKey: "",
+        Fee: (parseInt(autofilled.Fee || "12") * 3).toString(), // 서명자 수 고려
       }
 
       console.log("🚀 Sending to XUMM payload.create:", multisignTx)
@@ -71,8 +75,7 @@ export async function POST(req) {
         options: { multisign: true },
       })
 
-      if (!payload || !payload.uuid || !payload.next?.always) {
-        console.error("❌ Payload creation returned invalid response:", payload)
+      if (!payload?.uuid || !payload?.next?.always) {
         return NextResponse.json({ error: "Invalid payload response from XUMM" }, { status: 500 })
       }
 
@@ -86,6 +89,7 @@ export async function POST(req) {
       })
     }
 
+    // 3️⃣ 서명 수집
     if (action === "collectSignature") {
       const { uuid } = body
       if (!uuid) {
@@ -136,6 +140,7 @@ export async function POST(req) {
       })
     }
 
+    // 4️⃣ 멀티사인 제출
     if (action === "submitMultisigned") {
       const { sequence } = body
       const signers = signedTxStore[sequence]
