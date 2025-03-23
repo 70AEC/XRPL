@@ -105,8 +105,14 @@ export default function TransactionsPage() {
   
     window.open(`https://xumm.app/sign/${uuid}`, "_blank")
   
-    setTimeout(async () => {
-      const finishRes = await fetch("/api/escrow/multisign", {
+    // 🔁 반복 풀링 로직 (최대 30초 동안, 1.5초마다 체크)
+    const maxTries = 20
+    let tryCount = 0
+    let signed = false
+  
+    const pollSignature = async () => {
+      tryCount++
+      const res = await fetch("/api/escrow/multisign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -114,38 +120,42 @@ export default function TransactionsPage() {
           uuid,
         }),
       })
+      const result = await res.json()
   
-      const result = await finishRes.json()
+      if (result.success) {
+        signed = true
+        alert("✅ Signature collected!")
   
-      if (!result.success) {
-        alert(result.error || "❌ Failed to collect signature.")
-        return
-      }
+        // 🧾 자동 제출 (2명 이상일 때)
+        if (result.collected >= 2) {
+          const submitRes = await fetch("/api/escrow/multisign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "submitMultisigned",
+              sequence: result.sequence,
+            }),
+          })
   
-      alert("✅ Signature collected!")
-  
-      // 🔁 서명자 수 2명 이상이면 자동 제출
-      if (result.collected >= 2) {
-        const submitRes = await fetch("/api/escrow/multisign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "submitMultisigned",
-            sequence: result.sequence,
-          }),
-        })
-  
-        const submitData = await submitRes.json()
-        if (submitData.success) {
-          alert("🚀 EscrowFinish transaction submitted successfully!")
+          const submitData = await submitRes.json()
+          if (submitData.success) {
+            alert("🚀 EscrowFinish transaction submitted successfully!")
+          } else {
+            alert("❌ Failed to submit transaction: " + submitData.error)
+          }
         } else {
-          alert("❌ Failed to submit transaction: " + submitData.error)
+          alert("🕓 Waiting for another signature...")
         }
+      } else if (tryCount < maxTries) {
+        setTimeout(pollSignature, 1500)
       } else {
-        alert("🕓 Waiting for another signature...")
+        alert("⌛️ Timed out waiting for signature.")
       }
-    }, 10000)
+    }
+  
+    pollSignature()
   }
+  
   
 
   return (
